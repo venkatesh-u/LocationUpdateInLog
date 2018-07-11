@@ -67,7 +67,15 @@ public class LocationUpdatesBroadcastReceiver extends BroadcastReceiver {
                     locationResultHelper.saveResults();
                     // Show notification with the location data.
                     //locationResultHelper.showNotification();
-                    Log.i(TAG, LocationResultHelper.getSavedLocationResult(context));
+//                    Log.i(TAG, LocationResultHelper.getSavedLocationResult(context));
+
+
+                    String time = LocationResultHelper.getLocationResultTitle();
+                    String latitude = String.valueOf(locations.get(0).getLatitude());
+                    String longitude = String.valueOf(locations.get(0).getLongitude());
+
+                    Log.d(TAG, ", Lat: "+  latitude +", Long: "+ longitude+", Time: "+ time);
+
 
 //                    Stock stk = new Stock();
 //                    stk.setSymbol(String.valueOf(locations.get(0).getLatitude())

@@ -3,6 +3,7 @@ package com.example.venkatesh.locationupdatefrequent;
 import android.Manifest;
 import android.app.Activity;
 import android.app.PendingIntent;
+import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -25,6 +26,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -52,6 +54,7 @@ import com.google.android.gms.maps.model.CircleOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.master.permissionhelper.PermissionHelper;
 
 import java.io.IOException;
 import java.util.List;
@@ -65,6 +68,7 @@ public class GeoFencingDemo extends AppCompatActivity implements GoogleApiClient
 
     ComponentName component;
     Marker marker;
+    ProgressDialog pDialog;
 
     private static final String TAG = GeoFencingDemo.class.getSimpleName();
     private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 34;
@@ -116,6 +120,7 @@ public class GeoFencingDemo extends AppCompatActivity implements GoogleApiClient
 
     Geocoder geocoder;
     SupportMapFragment mapFragment;
+    private PermissionHelper permissionHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -138,21 +143,23 @@ public class GeoFencingDemo extends AppCompatActivity implements GoogleApiClient
         //mRemoveUpdatesButton = (Button) findViewById(R.id.remove_updates_button);
         //mLocationUpdatesResultView = (TextView) findViewById(R.id.location_updates_result);
 
-        // Check if the user revoked runtime permissions.
-        if (!checkPermissionsLocation()) {
-            requestPermissionsLoc();
-        }
-
-        if (!checkPermissionsSMS()){
-            requestPermissionsSMS();
-        }
-
         mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
+
+        //permissions
+        isWriteStoragePermissionGranted();
+
+//        if (!checkPermissionsSMS()){
+//            requestPermissionsSMS();
+//        }
+
+
+        buildGoogleApiClient();
+
+
         mapFragment.getMapAsync(this);
 
 
 
-        buildGoogleApiClient();
 
         mDownloadStateReceiver = new BroadcastReceiver() {
             @Override
@@ -206,7 +213,7 @@ public class GeoFencingDemo extends AppCompatActivity implements GoogleApiClient
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        Log.d(TAG, "onOptionsItemSelected");
+//        Log.d(TAG, "onOptionsItemSelected");
 //        switch (item.getItemId()) {
 //            case R.id.action_start_monitor:
 //                startGeofencing();
@@ -215,7 +222,7 @@ public class GeoFencingDemo extends AppCompatActivity implements GoogleApiClient
 //                stopGeoFencing();
 //                break;
 //            case R.id.action_settings:
-//                changeGeofence();
+////                changeGeofence();
 //                break;
 //        }
         return super.onOptionsItemSelected(item);
@@ -420,6 +427,9 @@ public class GeoFencingDemo extends AppCompatActivity implements GoogleApiClient
                 .enableAutoManage(this, this)
                 .addApi(LocationServices.API)
                 .build();
+
+        mGoogleApiClient.connect();
+
         createLocationRequest();
     }
 
@@ -477,62 +487,7 @@ public class GeoFencingDemo extends AppCompatActivity implements GoogleApiClient
         }
     }
 
-    /**
-     * Return the current state of the permissions needed.
-     */
-    private boolean checkPermissionsLocation() {
-        Log.d(TAG,"checkPermissions");
-        int permissionState = ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION);
-        return permissionState == PackageManager.PERMISSION_GRANTED;
-    }
 
-    private boolean checkPermissionsSMS() {
-        Log.d(TAG,"checkPermissions");
-        int permissionState = ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.SEND_SMS);
-        return permissionState == PackageManager.PERMISSION_GRANTED;
-    }
-
-
-    private void requestPermissionsLoc() {
-        Log.d(TAG,"requestPermissions");
-        boolean shouldProvideRationale =
-                ActivityCompat.shouldShowRequestPermissionRationale(this,
-                        Manifest.permission.ACCESS_FINE_LOCATION);
-
-        // Provide an additional rationale to the user. This would happen if the user denied the
-        // request previously, but didn't check the "Don't ask again" checkbox.
-        if (shouldProvideRationale) {
-            Log.i(TAG, "Displaying permission rationale to provide additional context.");
-            Snackbar.make(
-                    findViewById(R.id.activity_main),
-                    R.string.permission_rationale,
-                    Snackbar.LENGTH_INDEFINITE)
-                    .setAction(R.string.ok, new View.OnClickListener() {
-                        @Override
-                        public void onClick(View view) {
-                            // Request permission
-                            ActivityCompat.requestPermissions(GeoFencingDemo.this,
-                                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                                    REQUEST_PERMISSIONS_REQUEST_CODE);
-                        }
-                    })
-                    .show();
-        } else {
-            Log.i(TAG, "Requesting permission");
-            // Request permission. It's possible this can be auto answered if device policy
-            // sets the permission in a given state or the user denied the permission
-            // previously and checked "Never ask again".
-            ActivityCompat.requestPermissions(GeoFencingDemo.this,
-                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    REQUEST_PERMISSIONS_REQUEST_CODE);
-        }
-
-
-
-
-    }
 
 //
     private void requestPermissionsSMS() {
@@ -568,123 +523,13 @@ public class GeoFencingDemo extends AppCompatActivity implements GoogleApiClient
     }
 
 
-    /**
-     * Callback received when a permissions request has been completed.
-     */
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        Log.i(TAG, "onRequestPermissionResult");
-        if (requestCode == REQUEST_PERMISSIONS_REQUEST_CODE) {
-            if (grantResults.length <= 0) {
-                // If user interaction was interrupted, the permission request is cancelled and you
-                // receive empty arrays.
-                Log.i(TAG, "User interaction was cancelled.");
-            } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission was granted. Kick off the process of building and connecting
-                // GoogleApiClient.
-                mapFragment.getMapAsync(this);
-
-                buildGoogleApiClient();
-                isMonitoring = true;
-//                startGeofencing();
-                startLocationMonitor();
-                invalidateOptionsMenu();
-
-//                if (!checkPermissionsSMS()){
-//                    requestPermissionsSMS();
-//                }
-
-
-            } else {
-                // Permission denied.
-
-                // Notify the user via a SnackBar that they have rejected a core permission for the
-                // app, which makes the Activity useless. In a real app, core permissions would
-                // typically be best requested during a welcome-screen flow.
-
-                // Additionally, it is important to remember that a permission might have been
-                // rejected without asking the user for permission (device policy or "Never ask
-                // again" prompts). Therefore, a user interface affordance is typically implemented
-                // when permissions are denied. Otherwise, your app could appear unresponsive to
-                // touches or interactions which have required permissions.
-                Snackbar.make(
-                        findViewById(R.id.activity_main),
-                        R.string.permission_denied_explanation,
-                        Snackbar.LENGTH_INDEFINITE)
-                        .setAction(R.string.settings, new View.OnClickListener() {
-                            @Override
-                            public void onClick(View view) {
-                                // Build intent that displays the App settings screen.
-                                Intent intent = new Intent();
-                                intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                                Uri uri = Uri.fromParts("package",
-                                        BuildConfig.APPLICATION_ID, null);
-                                intent.setData(uri);
-                                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                                startActivity(intent);
-                            }
-                        })
-                        .show();
-            }
-        }
-
-        if (requestCode == REQUEST_PERMISSIONS_REQUEST_CODE_SMS){
-            if (grantResults.length <= 0) {
-                // If user interaction was interrupted, the permission request is cancelled and you
-                // receive empty arrays.
-                Log.i(TAG, "User interaction was cancelled.");
-            } else if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission was granted. Kick off the process of building and connecting
-                // GoogleApiClient.
-//                buildGoogleApiClient();
-//                isMonitoring = true;
-//                startGeofencing();
-//                startLocationMonitor();
-//                invalidateOptionsMenu();
-                Log.i(TAG, "SMS permission granted .");
-
-            } else {
-                // Permission denied.
-
-                // Notify the user via a SnackBar that they have rejected a core permission for the
-                // app, which makes the Activity useless. In a real app, core permissions would
-                // typically be best requested during a welcome-screen flow.
-
-                // Additionally, it is important to remember that a permission might have been
-                // rejected without asking the user for permission (device policy or "Never ask
-                // again" prompts). Therefore, a user interface affordance is typically implemented
-                // when permissions are denied. Otherwise, your app could appear unresponsive to
-                // touches or interactions which have required permissions.
-                Snackbar.make(
-                        findViewById(R.id.activity_main),
-                        R.string.permission_denied_explanation,
-                        Snackbar.LENGTH_INDEFINITE)
-                        .setAction(R.string.settings, new View.OnClickListener() {
-                            @Override
-                            public void onClick(View view) {
-                                // Build intent that displays the App settings screen.
-                                Intent intent = new Intent();
-                                intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-                                Uri uri = Uri.fromParts("package",
-                                        BuildConfig.APPLICATION_ID, null);
-                                intent.setData(uri);
-                                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                                startActivity(intent);
-                            }
-                        })
-                        .show();
-            }
-        }
-    }
-
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
         Log.d(TAG,"onSharedPreferenceChanged");
         if (s.equals(LocationResultHelper.KEY_LOCATION_UPDATES_RESULT)) {
             //mLocationUpdatesResultView.setText(LocationResultHelper.getSavedLocationResult(this));
         } else if (s.equals(LocationRequestHelper.KEY_LOCATION_UPDATES_REQUESTED)) {
-//            updateButtonsState(LocationRequestHelper.getRequesting(this));
+            updateButtonsState(LocationRequestHelper.getRequesting(this));
         }
     }
 
@@ -838,27 +683,27 @@ public class GeoFencingDemo extends AppCompatActivity implements GoogleApiClient
         return null;
     }
 
-//    private void stopGeoFencing() {
-//        Log.d(TAG,"stopGeoFencing");
-//        pendingIntent = getGeofencePendingIntent();
-//        LocationServices.GeofencingApi.removeGeofences(mGoogleApiClient, pendingIntent)
-//                .setResultCallback(new ResultCallback<Status>() {
-//                    @Override
-//                    public void onResult(@NonNull Status status) {
-//                        if (status.isSuccess())
-//                            Log.d(TAG, "Stop geofencing");
-//                        else
-//                            Log.d(TAG, "Not stop geofencing");
-//                    }
-//                });
-//        isMonitoring = false;
-//        invalidateOptionsMenu();
-//
-//        if (isReceiverEnabled()){
-//            act.getPackageManager().setComponentEnabledSetting(component, PackageManager.COMPONENT_ENABLED_STATE_DISABLED ,
-//                    PackageManager.DONT_KILL_APP);
-//        }
-//    }
+    private void stopGeoFencing() {
+        Log.d(TAG,"stopGeoFencing");
+        pendingIntent = getGeofencePendingIntent();
+        LocationServices.GeofencingApi.removeGeofences(mGoogleApiClient, pendingIntent)
+                .setResultCallback(new ResultCallback<Status>() {
+                    @Override
+                    public void onResult(@NonNull Status status) {
+                        if (status.isSuccess())
+                            Log.d(TAG, "Stop geofencing");
+                        else
+                            Log.d(TAG, "Not stop geofencing");
+                    }
+                });
+        isMonitoring = false;
+        invalidateOptionsMenu();
+
+        if (isReceiverEnabled()){
+            act.getPackageManager().setComponentEnabledSetting(component, PackageManager.COMPONENT_ENABLED_STATE_DISABLED ,
+                    PackageManager.DONT_KILL_APP);
+        }
+    }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -922,6 +767,51 @@ public class GeoFencingDemo extends AppCompatActivity implements GoogleApiClient
 
 
 
+    public void isWriteStoragePermissionGranted() {
+
+        permissionHelper = new PermissionHelper(this, new String[]{ Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+
+        permissionHelper.request(new PermissionHelper.PermissionCallback() {
+            @Override
+            public void onPermissionGranted() {
+                Toast.makeText(act, "granted", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "onPermissionGranted() called");
+
+                buildGoogleApiClient();
+
+                mapFragment.getMapAsync(GeoFencingDemo.this);
+
+                isMonitoring = true;
+
+            }
+
+            @Override
+            public void onIndividualPermissionGranted(String[] grantedPermission) {
+                Log.d(TAG, "onIndividualPermissionGranted() called with: grantedPermission = [" + TextUtils.join(",", grantedPermission) + "]");
+            }
+
+            @Override
+            public void onPermissionDenied() {
+                Toast.makeText(GeoFencingDemo.this, "permission denied", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "onPermissionDenied() called");
+            }
+
+            @Override
+            public void onPermissionDeniedBySystem() {
+                Log.d(TAG, "onPermissionDeniedBySystem() called");
+                permissionHelper.openAppDetailsActivity();
+            }
+        });
+
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (permissionHelper != null) {
+            permissionHelper.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+    }
 
 }
 

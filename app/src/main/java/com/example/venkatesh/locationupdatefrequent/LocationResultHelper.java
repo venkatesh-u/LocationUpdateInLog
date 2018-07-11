@@ -59,17 +59,17 @@ private static String TAG = LocationResultHelper.class.getSimpleName();
     /**
      * Returns the title for reporting about a list of {@link Location} objects.
      */
-    private String getLocationResultTitle() {
-        Log.d(TAG,"getLocationResultTitle");
+    public static String getLocationResultTitle() {
+//        Log.d(TAG,"getLocationResultTitle");
 
         String numLocationsReported = null;
                 //= mContext.getResources().getQuantityString(
                 //R.plurals.num_locations_reported, mLocations.size(), mLocations.size());
-        return numLocationsReported + ": " + DateFormat.getDateTimeInstance().format(new Date());
+        return DateFormat.getDateTimeInstance().format(new Date());
     }
 
-    private String getLocationResultText() {
-        Log.d(TAG,"getLocationResultText");
+    public String getLocationResultText() {
+//        Log.d(TAG,"getLocationResultText");
 
         if (mLocation == null) {
             return mContext.getString(R.string.unknown_location);
